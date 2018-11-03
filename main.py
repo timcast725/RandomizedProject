@@ -145,11 +145,18 @@ def rde_algorithm(x, processes, field_size):
 
 	# Continue until all processes can recalculate the original X
 	all_packets_received = False
+	i = 0
 	while not all_packets_received:
+		print("Round %d" % i)
+		i += 1
 		# Determine the process with max rank for set of received x_i's
 		for proc in processes:
 			if proc.rank() > proc_max.rank():
 				proc_max = proc
+
+		print("proc_max PID %s" % str(proc.pid))
+		print("proc_max u_vector %s" % str(proc.u_vector))
+		print("proc_max gamma %s" % str(proc.gamma_set))
 
 		# generate encoding vector
 		gamma_i = proc_max.generate_gamma(field_size)  
@@ -167,8 +174,8 @@ def rde_algorithm(x, processes, field_size):
 
 def main(argv):
 	if(len(argv) != 2 and len(argv) != 3):
-		print("Usage: %s input.txt [run_type]" % argv[0])
-		print("Run types allowed: missing_one,all_but_one")
+		print("Usage: python3 %s input.txt [run_type]" % argv[0])
+		print("Run types allowed: missing_one, has_one")
 		return	
 
 	random.seed(a=None, version=2)
@@ -213,8 +220,8 @@ def main(argv):
 				if i != j:
 					x_subset.append(x[j])
 					u_vector[j] = 1
-		if run_type == "all_but_one":
-			# Each process has all but one codeword
+		if run_type == "has_one":
+			# Each process has only 1 codeword
 			for j in range(0, num_packets):
 				if i == j:
 					x_subset.append(x[j])
@@ -224,8 +231,8 @@ def main(argv):
 		new_process = process(i, x_subset, u_vector)
 		processes.append(new_process)
 
-	for proc in processes:
-		print(proc.to_string())
+	#for proc in processes:
+	#	print(proc.to_string())
 
 	naive_bits_used = naive_algorithm(x, processes)
 	print("Used %d bits using the Naive Algorithm" % naive_bits_used)

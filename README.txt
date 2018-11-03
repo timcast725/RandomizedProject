@@ -17,7 +17,7 @@ To run:
 	python3 main.py input.txt [run_type]
 
 The input.txt should be formatted based on input_example.txt. The run_type
-can be either "missing_one" or "all_but_one". If left blank, missing_one is
+can be either "missing_one" or "has_one". If left blank, missing_one is
 the default. 
 
 input_example.txt
