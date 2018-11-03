@@ -51,14 +51,14 @@ class process():
 		""" Used by the naive algorithm 
 
 		Function simulates sending to all processes.
-		In actuality, it just counts how many bytes would have to
+		In actuality, it just counts how many bits would have to
 		be sent for this process to broadcast all its packets
 		"""
-		bytes_used = 0
+		bits_used = 0
 		for codeword in self.x_subset:
 			for num in codeword:
-				bytes_used += sys.getsizeof(num)
-		return bytes_used	
+				bits_used += len("{0:b}".format(num))
+		return bits_used	
 
 	def rank(self):
 		""" Returns rank of u_vector U gamma_set """
@@ -96,24 +96,28 @@ class process():
 		""" Sends encoding vector to all other processes 
 
 		Also calculates p_i for this round for each process to
-		add to their matrix p. Returns the number of bytes used
+		add to their matrix p. Returns the number of bits used
 		by this broadcast.
 		"""
-		bytes_used = 0
+		bits_used = 0
 
 		# Create p_i for this round
 		p = np.array([[0] * len(self.x_subset[0])])
 		j = 0
 		for i in range(0, len(gamma)):
 			if gamma[i] != 0:
-				bytes_used += sys.getsizeof(gamma[i])
+				bits_used += len("{0:b}".format(gamma[i]))
 				p = np.add(p, np.multiply(gamma[i], self.x_subset[j]))
 				j += 1
 
 		mod_matrix(p, field_size)
 
-		for val in p:
-			bytes_used += sys.getsizeof(val)
+		# Count bits in p 
+		for row in p:
+			for col in row:
+				bits_used += len("{0:b}".format(col))
+
+		# Broadcast p and gamma to all processes
 		for proc in processes:
 			if(len(proc.p_set) == 0):
 				proc.p_set = p.T
@@ -122,21 +126,21 @@ class process():
 				proc.p_set = np.append(proc.p_set, p.T, axis=1)
 				proc.gamma_set = np.append(proc.gamma_set, np.array([np.array(gamma)]).T, axis=1)
 			
-		return bytes_used
+		return bits_used
 
 	
 
 def naive_algorithm(x, processes):
-	""" Counts the number of bytes used by the Naive algorithm """
-	bytes_used = 0
+	""" Counts the number of bits used by the Naive algorithm """
+	bits_used = 0
 	for proc in processes:
-		bytes_used += proc.send_all(processes)
-	return bytes_used
+		bits_used += proc.send_all(processes)
+	return bits_used
 
 
 def rde_algorithm(x, processes, field_size):
-	""" Runs RDE algorithm and returns bytes used """
-	bytes_used = 0
+	""" Runs RDE algorithm and returns bits used """
+	bits_used = 0
 	proc_max = processes[0]
 
 	# Continue until all processes can recalculate the original X
@@ -150,7 +154,7 @@ def rde_algorithm(x, processes, field_size):
 		# generate encoding vector
 		gamma_i = proc_max.generate_gamma(field_size)  
 		# send to all processes
-		bytes_used += proc_max.rde_broadcast(processes, gamma_i, field_size)  
+		bits_used += proc_max.rde_broadcast(processes, gamma_i, field_size)  
 
 		# See if all processes can calculate X
 		all_packets_received = True
@@ -158,7 +162,7 @@ def rde_algorithm(x, processes, field_size):
 			if proc.rank() < len(x):
 				all_packets_received = False 
 
-	return bytes_used	
+	return bits_used	
 
 
 def main(argv):
@@ -223,10 +227,10 @@ def main(argv):
 	for proc in processes:
 		print(proc.to_string())
 
-	naive_bytes_used = naive_algorithm(x, processes)
-	print("Used %d bytes using the Naive Algorithm" % naive_bytes_used)
-	rde_bytes_used = rde_algorithm(x, processes, field_size)
-	print("Used %d bytes using the RDE Algorithm" % rde_bytes_used)
+	naive_bits_used = naive_algorithm(x, processes)
+	print("Used %d bits using the Naive Algorithm" % naive_bits_used)
+	rde_bits_used = rde_algorithm(x, processes, field_size)
+	print("Used %d bits using the RDE Algorithm" % rde_bits_used)
 
 
 if __name__ == "__main__":
