@@ -1,0 +1,5 @@
+num_packets num_processes field_size
+x_1 # space delimited
+x_2
+x_3
+...
