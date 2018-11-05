@@ -38,6 +38,14 @@ class process():
 		self.gamma_set = np.array([])
 		self.u_vector = u_vector.copy()
 
+	def copy(self, other):
+		self.pid = other.pid
+		self.x_subset = other.x_subset.copy()
+		self.p_set = other.p_set.copy()
+		self.gamma_set = other.gamma_set.copy()
+		self.u_vector = other.u_vector.copy()
+		
+
 	def to_string(self):
 		""" Returns a string with all member variables """
 		string = "PID = " + str(self.pid) + "\n"
@@ -83,6 +91,17 @@ class process():
 					break
 
 		return rank
+
+	def update_u_vec(self, processes):
+		""" Used by less naive algorithm
+
+		Updates each processes u_vector to reflect what was sent
+		during this round by self process.
+		"""
+		for proc in processes:
+			for i in range(0, len(self.u_vector)):
+				if self.u_vector[i] == 1:
+					proc.u_vector[i] = 1
 
 	def generate_gamma(self, field_size):
 		""" Generates a new encoding vector to send to others """
@@ -137,6 +156,33 @@ def naive_algorithm(x, processes):
 		bits_used += proc.send_all(processes)
 	return bits_used
 
+def less_naive_algorithm(x, processes):
+	""" Counts the number of bits used by the Naive algorithm """
+	bits_used = 0
+	proc_max = processes[0]
+
+	# Continue until all processes can recalculate the original X
+	all_packets_received = False
+	i = 0
+	while not all_packets_received:
+		i += 1
+		# Determine the process with max rank for set of received x_i's
+		for proc in processes:
+			if proc.rank() > proc_max.rank():
+				proc_max = proc
+
+		# send to all processes
+		bits_used += proc_max.send_all(processes)  
+		proc_max.update_u_vec(processes)
+
+		# See if all processes can calculate X
+		all_packets_received = True
+		for proc in processes:
+			if proc.rank() < len(x):
+				all_packets_received = False 
+
+	return bits_used
+
 
 def rde_algorithm(x, processes, field_size):
 	""" Runs RDE algorithm and returns bits used """
@@ -147,16 +193,11 @@ def rde_algorithm(x, processes, field_size):
 	all_packets_received = False
 	i = 0
 	while not all_packets_received:
-		print("Round %d" % i)
 		i += 1
 		# Determine the process with max rank for set of received x_i's
 		for proc in processes:
 			if proc.rank() > proc_max.rank():
 				proc_max = proc
-
-		print("proc_max PID %s" % str(proc.pid))
-		print("proc_max u_vector %s" % str(proc.u_vector))
-		print("proc_max gamma %s" % str(proc.gamma_set))
 
 		# generate encoding vector
 		gamma_i = proc_max.generate_gamma(field_size)  
@@ -169,6 +210,7 @@ def rde_algorithm(x, processes, field_size):
 			if proc.rank() < len(x):
 				all_packets_received = False 
 
+	print("%d rounds taken" % i)
 	return bits_used	
 
 
@@ -231,11 +273,18 @@ def main(argv):
 		new_process = process(i, x_subset, u_vector)
 		processes.append(new_process)
 
-	#for proc in processes:
-	#	print(proc.to_string())
-
 	naive_bits_used = naive_algorithm(x, processes)
 	print("Used %d bits using the Naive Algorithm" % naive_bits_used)
+
+	processes_copy = []
+	for proc in processes:
+		new_proc = process(0, x_subset, u_vector)
+		new_proc.copy(proc)
+		processes_copy.append(new_proc)
+		
+	less_naive_bits_used = less_naive_algorithm(x, processes_copy)
+	print("Used %d bits using the Less Naive Algorithm" % less_naive_bits_used)
+
 	rde_bits_used = rde_algorithm(x, processes, field_size)
 	print("Used %d bits using the RDE Algorithm" % rde_bits_used)
 
