@@ -217,7 +217,7 @@ def rde_algorithm(x, processes, field_size):
 def main(argv):
 	if(len(argv) != 2 and len(argv) != 3):
 		print("Usage: python3 %s input.txt [run_type]" % argv[0])
-		print("Run types allowed: missing_one, has_one")
+		print("Run types allowed: missing_one, has_one, some, half, most")
 		return	
 
 	random.seed(a=None, version=2)
@@ -264,10 +264,27 @@ def main(argv):
 					u_vector[j] = 1
 		if run_type == "has_one":
 			# Each process has only 1 codeword
-			for j in range(0, num_packets):
-				if i == j:
-					x_subset.append(x[j])
-					u_vector[j] = 1
+			x_subset.append(x[i])
+			u_vector[i] = 1
+		if run_type == "some":
+			# Each process has quarter of codewords
+			for j in range(-1*math.ceil(num_packets/8.0), math.ceil(num_packets/8.0)):
+				ind = (i + j) % num_packets
+				x_subset.append(x[ind])
+				u_vector[ind] = 1
+		if run_type == "half":
+			# Each process has quarter of codewords
+			for j in range(-1*math.ceil(num_packets/4.0), math.ceil(num_packets/4.0)):
+				ind = (i + j) % num_packets
+				x_subset.append(x[ind])
+				u_vector[ind] = 1
+		if run_type == "most":
+			# Each process has quarter of codewords
+			for j in range(-1*math.ceil(3*num_packets/8.0), math.ceil(3*num_packets/8.0)):
+				ind = (i + j) % num_packets
+				x_subset.append(x[ind])
+				u_vector[ind] = 1
+			
 
 		# Create process and add to list
 		new_process = process(i, x_subset, u_vector)
