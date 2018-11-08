@@ -19,9 +19,29 @@ def reduce_matrix(matrix):
         if i not in inds:
             cols_to_delete.append(i)
 
+    num_deleted = 0
     for i in cols_to_delete:
-        matrix = np.delete(matrix, i, 1)
+        matrix = np.delete(matrix, i-num_deleted, 1)
+        num_deleted += 1
     return matrix
+
+def reduce_matrix_gamma(reduce_mat, remove_mat):
+    """ Remove columns to return only linearly independent columns from reduce_mat
+    
+    Will remove the same corresponding columns from remove_mat
+    """
+    _, inds = sympy.Matrix(reduce_mat.T).T.rref()
+    cols_to_delete = []
+    for i in range(0, len(reduce_mat[0])):
+        if i not in inds:
+            cols_to_delete.append(i)
+
+    num_deleted = 0
+    for i in cols_to_delete:
+        reduce_mat = np.delete(reduce_mat, i-num_deleted, 1)
+        remove_mat = np.delete(remove_mat, i-num_deleted, 1)
+        num_deleted += 1
+    return (reduce_mat, remove_mat)
 
 class process():
     """ Defines a single mobile client in our algorithm
@@ -70,17 +90,27 @@ class process():
 
     def rank(self):
         """ Returns rank of u_vector U gamma_set """
+        rank = 0
         # If nothing in gamma_set yet, use u_vector
         if len(self.gamma_set) == 0:
-            rank = 0
             for val in self.u_vector:
                 if val != 0:
                     rank += 1
             return rank
 
-        # Otherwise, append u_vector to gamma and get rank
-        u_gamma = np.append(self.gamma_set, np.array([np.array(self.u_vector)]).T, axis=1)
-        return np.linalg.matrix_rank(u_gamma)
+        # Check both u_vector and gamma. If either is non-zero, add 1
+        for i in range(0, len(self.gamma_set)):
+            # if this packet is in our x_subset, add and continue
+            if self.u_vector[i] == 1:
+                rank += 1
+                continue
+            # Check if we have received info on this packet
+            for j in range(0, len(self.gamma_set[i])):
+                if self.gamma_set[i][j] > 0:
+                    rank += 1
+                    break 
+
+        return rank 
 
     def update_u_vec(self, processes):
         """ Used by less naive algorithm
@@ -186,7 +216,8 @@ def rde_algorithm(x, processes, field_size):
     # Continue until all processes can recalculate the original X
     all_packets_received = False
     i = 0
-    while not all_packets_received:
+    #while not all_packets_received:
+    while i < 3:
         i += 1
         print("Round " + str(i))
         # Determine the process with max rank for set of received x_i's
@@ -325,6 +356,11 @@ def main(argv):
 
     rde_bits_used = rde_algorithm(x, processes, field_size)
     print("Used %d bits using the RDE Algorithm" % rde_bits_used)
+
+    for proc in processes:
+        x_approx = np.dot(proc.p_set, np.linalg.pinv(proc.gamma_set))
+        #x_approx = np.dot(p_x, np.linalg.inv(u_gamma))
+        print(x_approx)
 
 
 if __name__ == "__main__":
