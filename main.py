@@ -57,6 +57,15 @@ class process():
         self.p_set = np.array([])
         self.gamma_set = np.array([])
         self.u_vector = u_vector.copy()
+        self.u_mat = np.array([])
+        for i in range(0, len(u_vector)):
+            if u_vector[i] != 0:
+                col = np.array([0]*len(u_vector))
+                col[i] = 1
+                if(len(self.u_mat) == 0):
+                    self.u_mat = np.array([col]).T
+                else:
+                    self.u_mat = np.append(self.u_mat, np.array([col]).T, axis=1)
 
     def copy(self, other):
         self.pid = other.pid
@@ -64,13 +73,13 @@ class process():
         self.p_set = other.p_set.copy()
         self.gamma_set = other.gamma_set.copy()
         self.u_vector = other.u_vector.copy()
-        
+        self.u_mat = other.u_mat.copy()
 
     def to_string(self):
         """ Returns a string with all member variables """
         string = "PID = " + str(self.pid) + "\n"
         string += "x_subset = " + str(self.x_subset) + "\n"
-        string += "u_vector = " + str(self.u_vector) + "\n"
+        string += "u_mat = " + str(self.u_mat) + "\n"
         string += "p_set = " + str(self.p_set) + "\n"
         string += "gamma_set = " + str(self.gamma_set) + "\n\n"
         return string
@@ -89,7 +98,7 @@ class process():
         return bits_used    
 
     def rank(self):
-        """ Returns rank of u_vector U gamma_set """
+        """ Returns rank of u_mat U gamma_set """
         rank = 0
         # If nothing in gamma_set yet, use u_vector
         if len(self.gamma_set) == 0:
@@ -98,19 +107,10 @@ class process():
                     rank += 1
             return rank
 
-        # Check both u_vector and gamma. If either is non-zero, add 1
-        for i in range(0, len(self.gamma_set)):
-            # if this packet is in our x_subset, add and continue
-            if self.u_vector[i] == 1:
-                rank += 1
-                continue
-            # Check if we have received info on this packet
-            for j in range(0, len(self.gamma_set[i])):
-                if self.gamma_set[i][j] > 0:
-                    rank += 1
-                    break 
+        # Get Rank of C
+        C = np.append(self.u_mat, self.gamma_set)
 
-        return rank 
+        return np.linalg.matrix_rank(C) 
 
     def update_u_vec(self, processes):
         """ Used by less naive algorithm
