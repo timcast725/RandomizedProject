@@ -1,0 +1,6 @@
+Requires SageMath
+
+Download SageMath at http://www.sagemath.org/download.html and Install.
+Run SageMath shell if on Windows, or just open shell if in Linux
+Run main.py with:
+    sage -python main.py <input file> <run type>

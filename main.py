@@ -1,47 +1,15 @@
 import sys
 import numpy as np
-import sympy
-from scipy.linalg import solve
 import math
 import random
+from sage.all import matrix
+from sage.all import GF
 
 def mod_matrix(matrix, field_size):
     """ Mods each element of matrix with field_size """
     for i in range(0, len(matrix)):
         for j in range(0, len(matrix[i])):
             matrix[i][j] = math.floor(matrix[i][j]) % field_size
-
-def reduce_matrix(matrix):
-    """ Remove columns to return only linearly independent columns """
-    _, inds = sympy.Matrix(matrix.T).T.rref()
-    cols_to_delete = []
-    for i in range(0, len(matrix[0])):
-        if i not in inds:
-            cols_to_delete.append(i)
-
-    num_deleted = 0
-    for i in cols_to_delete:
-        matrix = np.delete(matrix, i-num_deleted, 1)
-        num_deleted += 1
-    return matrix
-
-def reduce_matrix_gamma(reduce_mat, remove_mat):
-    """ Remove columns to return only linearly independent columns from reduce_mat
-    
-    Will remove the same corresponding columns from remove_mat
-    """
-    _, inds = sympy.Matrix(reduce_mat.T).T.rref()
-    cols_to_delete = []
-    for i in range(0, len(reduce_mat[0])):
-        if i not in inds:
-            cols_to_delete.append(i)
-
-    num_deleted = 0
-    for i in cols_to_delete:
-        reduce_mat = np.delete(reduce_mat, i-num_deleted, 1)
-        remove_mat = np.delete(remove_mat, i-num_deleted, 1)
-        num_deleted += 1
-    return (reduce_mat, remove_mat)
 
 class process():
     """ Defines a single mobile client in our algorithm
@@ -53,10 +21,10 @@ class process():
     def __init__(self, pid, x_subset, u_vector):
         """ Default constructor """
         self.pid = pid
-        self.x_subset = x_subset.copy()
+        self.x_subset = list(x_subset)
         self.p_set = np.array([])
         self.gamma_set = np.array([])
-        self.u_vector = u_vector.copy()
+        self.u_vector = list(u_vector)
         self.u_mat = np.array([])
         for i in range(0, len(u_vector)):
             if u_vector[i] != 0:
@@ -69,10 +37,10 @@ class process():
 
     def copy(self, other):
         self.pid = other.pid
-        self.x_subset = other.x_subset.copy()
+        self.x_subset = list(other.x_subset)
         self.p_set = other.p_set.copy()
         self.gamma_set = other.gamma_set.copy()
-        self.u_vector = other.u_vector.copy()
+        self.u_vector = list(other.u_vector)
         self.u_mat = other.u_mat.copy()
 
     def to_string(self):
@@ -97,7 +65,7 @@ class process():
                 bits_used += len("{0:b}".format(num))
         return bits_used    
 
-    def rank(self):
+    def rank(self, field_size):
         """ Returns rank of u_mat U gamma_set """
         rank = 0
         # If nothing in gamma_set yet, use u_vector
@@ -109,8 +77,15 @@ class process():
 
         # Get Rank of C
         C = np.append(self.u_mat, self.gamma_set)
-
-        return np.linalg.matrix_rank(C) 
+        C_list = []
+        for row in self.u_mat:
+            C_list.append(row.tolist())
+        for i in range(0, len(self.gamma_set)):
+            for j in range(0, len(self.gamma_set[i])):
+                C_list[i].append(self.gamma_set[i][j])
+            
+        C = matrix(GF(field_size), C_list)
+        return C.rank()
 
     def update_u_vec(self, processes):
         """ Used by less naive algorithm
@@ -188,11 +163,11 @@ def less_naive_algorithm(x, processes):
         i += 1
         # Determine the process with max rank for set of received x_i's
         for proc in processes:
-            if proc.rank() > proc_max.rank():
+            if proc.rank(0) > proc_max.rank(0):
                 proc_max = proc
 
-        if proc_max.rank() == 0:
-            print("ERROR: no one has any packets")
+        if proc_max.rank(0) == 0:
+            print "ERROR: no one has any packets"
             return 0
 
         # send to all processes
@@ -202,7 +177,7 @@ def less_naive_algorithm(x, processes):
         # See if all processes can calculate X
         all_packets_received = True
         for proc in processes:
-            if proc.rank() < len(x):
+            if proc.rank(0) < len(x):
                 all_packets_received = False 
 
     return bits_used
@@ -216,17 +191,16 @@ def rde_algorithm(x, processes, field_size):
     # Continue until all processes can recalculate the original X
     all_packets_received = False
     i = 0
-    #while not all_packets_received:
-    while i < 3:
+    while not all_packets_received:
         i += 1
-        print("Round " + str(i))
+        #print "Round " + str(i)
         # Determine the process with max rank for set of received x_i's
         for proc in processes:
-            if proc.rank() > proc_max.rank():
+            if proc.rank(field_size) > proc_max.rank(field_size):
                 proc_max = proc
 
-        if proc_max.rank() == 0:
-            print("ERROR: no one has any packets")
+        if proc_max.rank(field_size) == 0:
+            print "ERROR: no one has any packets"
             return 0
 
         # generate encoding vector
@@ -237,20 +211,20 @@ def rde_algorithm(x, processes, field_size):
         # See if all processes can calculate X
         all_packets_received = True
         for proc in processes:
-            if proc.rank() < len(x):
+            if proc.rank(field_size) < len(x):
                 all_packets_received = False 
 
-    print("%d rounds taken" % i)
+    print str(i) + " rounds taken"
     return bits_used    
 
 
 def main(argv):
     if(len(argv) != 2 and len(argv) != 3):
-        print("Usage: python3 %s input.txt [run_type]" % argv[0])
-        print("Run types allowed: missing_one, has_one, some, half, most, random_10, random_25, random_50, random_75, random_90")
+        print "Usage: python3 " + argv[0] + " input.txt [run_type]"
+        print "Run types allowed: missing_one, has_one, some, half, most, random_10, random_25, random_50, random_75, random_90"
         return    
 
-    random.seed(a=None, version=2)
+    random.seed(a=None)
     run_type = ""  # Determines how many packets each process gets 
     if len(argv) == 3: 
         run_type = argv[2]
@@ -298,13 +272,13 @@ def main(argv):
             u_vector[i] = 1
         if run_type == "some":
             # Each process has quarter of codewords
-            for j in range(-1*math.ceil(num_packets/8.0), math.ceil(num_packets/8.0)):
+            for j in range(int(-1*math.ceil(num_packets/8.0)), int(math.ceil(num_packets/8.0))):
                 ind = (i + j) % num_packets
                 x_subset.append(x[ind])
                 u_vector[ind] = 1
         if run_type == "half":
             # Each process has quarter of codewords
-            for j in range(-1*math.ceil(num_packets/4.0), math.ceil(num_packets/4.0)):
+            for j in range(int(-1*math.ceil(num_packets/4.0)), int(math.ceil(num_packets/4.0))):
                 ind = (i + j) % num_packets
                 x_subset.append(x[ind])
                 u_vector[ind] = 1
@@ -343,7 +317,7 @@ def main(argv):
         processes.append(new_process)
 
     naive_bits_used = naive_algorithm(x, processes)
-    print("Used %d bits using the Naive Algorithm" % naive_bits_used)
+    print "Used " + str(naive_bits_used) + " bits using the Naive Algorithm"
 
     processes_copy = []
     for proc in processes:
@@ -352,16 +326,10 @@ def main(argv):
         processes_copy.append(new_proc)
         
     less_naive_bits_used = less_naive_algorithm(x, processes_copy)
-    print("Used %d bits using the Less Naive Algorithm" % less_naive_bits_used)
+    print "Used " + str(less_naive_bits_used) + " bits using the Less Naive Algorithm"
 
     rde_bits_used = rde_algorithm(x, processes, field_size)
-    print("Used %d bits using the RDE Algorithm" % rde_bits_used)
-
-    for proc in processes:
-        x_approx = np.dot(proc.p_set, np.linalg.pinv(proc.gamma_set))
-        #x_approx = np.dot(p_x, np.linalg.inv(u_gamma))
-        print(x_approx)
-
+    print "Used " + str(rde_bits_used) + " bits using the RDE Algorithm"
 
 if __name__ == "__main__":
     main(sys.argv)
