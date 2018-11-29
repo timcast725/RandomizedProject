@@ -61,7 +61,16 @@ class process():
         """
         bits_used = 0
         for codeword in self.x_subset:
-            if codeword in sent_packets:
+            sent = False
+            for code in sent_packets:
+                sent = True
+                for i in range(0, len(code)):
+                    if code[i] != codeword[i]:
+                        sent = False
+                        break
+                if sent:
+                    break
+            if sent:
                 continue
             sent_packets.append(codeword)
             for num in codeword:
@@ -81,8 +90,12 @@ class process():
         # Get Rank of C
         C = np.append(self.u_mat, self.gamma_set)
         C_list = []
-        for row in self.u_mat:
-            C_list.append(row.tolist())
+        if len(self.u_mat) == 0:
+            for i in range(0, len(self.gamma_set)):
+                C_list.append([])
+        else:
+            for row in self.u_mat:
+                C_list.append(row.tolist())
         for i in range(0, len(self.gamma_set)):
             for j in range(0, len(self.gamma_set[i])):
                 C_list[i].append(self.gamma_set[i][j])
@@ -220,22 +233,9 @@ def rde_algorithm(x, processes, field_size):
 
     return bits_used    
 
-
-def main(argv):
-    if(len(argv) != 2 and len(argv) != 3):
-        print "Usage: python3 " + argv[0] + " input.txt [run_type]"
-        print "Run types allowed: missing_one, has_one, some, half, most, random_10, random_25, random_50, random_75, random_90"
-        return    
-
-    random.seed(a=None)
-    run_type = ""  # Determines how many packets each process gets 
-    if len(argv) == 3: 
-        run_type = argv[2]
-    else:
-        run_type = "missing_one"
-
+def run_experiment(run_type, filename):
     # Parse input file
-    input_file = open(argv[1], "r")    
+    input_file = open(filename, "r")    
     x = []
     i = 0
     field_size = 0  # Finite field size, q in paper
@@ -319,24 +319,59 @@ def main(argv):
         new_process = process(i, x_subset, u_vector)
         processes.append(new_process)
 
-    naive_bits_used = naive_algorithm(x, processes)
+    # Error checking: if there is a packet no one has
+    # then experiment can't run. Can happen when using
+    # random_*
+    for j in range(0, num_packets):
+        someone_has = False
+        for i in range(0, num_processes):
+            if(processes[i].u_vector[j] == 1):
+                someone_has = True
+                break
+        if not someone_has:
+            return False
 
-    processes_copy = []
-    for proc in processes:
-        new_proc = process(0, x_subset, u_vector)
-        new_proc.copy(proc)
-        processes_copy.append(new_proc)
-        
-    less_naive_bits_used = less_naive_algorithm(x, processes_copy)
+    for i in range(0, 10):
+        processes_copy = []
+        for proc in processes:
+            new_proc = process(0, x_subset, u_vector)
+            new_proc.copy(proc)
+            processes_copy.append(new_proc)
+            
+        less_naive_bits_used = less_naive_algorithm(x, processes_copy)
 
-    rde_bits_used = rde_algorithm(x, processes, field_size)
-    print str(less_naive_bits_used) + "," + str(rde_bits_used)
+        processes_copy = []
+        for proc in processes:
+            new_proc = process(0, x_subset, u_vector)
+            new_proc.copy(proc)
+            processes_copy.append(new_proc)
+
+        rde_bits_used = rde_algorithm(x, processes_copy, field_size)
+        print str(less_naive_bits_used) + "," + str(rde_bits_used)
+    return True
+
+def main():
+    random.seed(a=None)
+
+    run_types = ["missing_one", "has_one", "some", "half", "most",
+            "random_10", "random_25", "random_50", "random_75", "random_90"]
+    #input_files = ["input_small_gen.txt", "input_small_reduced.txt",
+    #        "input_smallmed_gen.txt", "input_smallmed_gen_reduced.txt",
+    #        "input_medium_gen.txt", "input_medium_gen_reduced.txt",
+    #        "input_large_gen.txt", "input_large_gen_reduced.txt",]
+    input_files = [
+            "binary_smallmed_gen.txt", "binary_smallmed_gen_reduced.txt",
+            "binary_med_gen.txt", "binary_med_gen_reduced.txt",
+            "binary_large_gen.txt", "binary_large_gen_reduced.txt",]
+    for filename in input_files:
+        for run_type in run_types:
+            print filename + "," + run_type
+            success = False
+            while(not success):
+                success = run_experiment(run_type, filename)
 
 if __name__ == "__main__":
-    main(sys.argv)
-
-
-
+    main()
 
 
 
