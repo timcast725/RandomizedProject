@@ -6,7 +6,7 @@ Alex Sprintson, Parastoo Sadeghi, Graham Booker, and Salim El Rouayheb
 
 Files:
 
-main.py:
+main_exps.py:
 	Main python file for running experiments pertaining to the
 RDE algorithm. It will count the number of bytes of the Naive Algorithm
 vs the RDE algorithm. The Naive algorithm consists of having each process
